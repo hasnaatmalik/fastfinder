@@ -82,18 +82,27 @@ export async function POST(req: NextRequest) {
 
     // Send verification email
     const emailResult = await sendVerificationEmail(email, name, otp);
+
+    // Log the result for debugging
+    console.log("Email sending result:", emailResult);
+
     if (!emailResult.success) {
-      return NextResponse.json(
-        {success: false, error: "Failed to send verification email"},
-        {status: 500}
-      );
+      console.error("Failed to send verification email:", emailResult.error);
+      // We still return success but with a warning
+      return NextResponse.json({
+        success: true,
+        message:
+          "Registration successful! Please check your email for the verification code. If you don't receive it, you can request a new code.",
+        verificationCode: otp, // Only for development purposes
+        warning: "Email delivery might be delayed",
+      });
     }
 
     return NextResponse.json({
       success: true,
       message:
         "Registration successful! Please check your email for the verification code.",
-      verificationCode: otp, // Only for development purposes, remove in production
+      verificationCode: otp, // Only for development purposes
     });
   } catch (error) {
     console.error("Registration error:", error);

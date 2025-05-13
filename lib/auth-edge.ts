@@ -1,46 +1,31 @@
 import {jwtVerify, SignJWT} from "jose";
 import type {NextResponse} from "next/server";
-import {cookies} from "next/headers";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
 const JWT_EXPIRES_IN = "7d";
 
-// Create JWT token
+// Create JWT token - only used in API routes, not middleware
 export function createToken(userId: string) {
   const token = new SignJWT({sub: userId})
     .setProtectedHeader({alg: "HS256"})
     .setIssuedAt()
     .setExpirationTime(JWT_EXPIRES_IN)
-    .sign(new TextEncoder().encode(JWT_SECRET));
+    .sign(new TextEncoder().encode(JWT_SECRET), {sync: true});
 
   return token;
 }
 
-// Verify JWT token
-export async function verifyToken(token: string) {
+// Verify JWT token - safe to use in middleware
+export function verifyToken(token: string) {
   try {
-    const {payload} = await jwtVerify(
-      token,
-      new TextEncoder().encode(JWT_SECRET)
-    );
+    const {payload} = jwtVerify(token, new TextEncoder().encode(JWT_SECRET), {
+      sync: true,
+    });
     return payload;
   } catch (error) {
     console.error("Token verification error:", error);
     return null;
   }
-}
-
-// Get current user ID from token
-export async function getCurrentUserId() {
-  const cookieStore = cookies();
-  const token = cookieStore.get("auth_token")?.value;
-
-  if (!token) {
-    return null;
-  }
-
-  const payload = await verifyToken(token);
-  return payload?.sub || null;
 }
 
 // Set auth cookie

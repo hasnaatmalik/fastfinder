@@ -1,141 +1,105 @@
-"use client"
-
-import { useState } from "react"
-import Link from "next/link"
-import Image from "next/image"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Calendar, MapPin, Phone, Mail } from "lucide-react"
-import { formatDistanceToNow } from "date-fns"
-
-interface Reporter {
-  _id: string
-  name: string
-  email: string
-  contactNumber: string
-}
+import Link from "next/link";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {Badge} from "@/components/ui/badge";
+import {Button} from "@/components/ui/button";
+import {MapPin, Calendar, ArrowRight} from "lucide-react";
 
 interface Item {
-  _id: string
-  title: string
-  description: string
-  type: "lost" | "found"
-  category: string
-  location: string
-  date: string
-  contactInfo: string
-  reportedBy: Reporter
-  image?: string
-  status: "open" | "closed"
-  createdAt: string
+  _id: string;
+  title: string;
+  description: string;
+  category: string;
+  location: string;
+  status: string;
+  imageUrl?: string;
+  createdAt: string;
+  user?: string;
 }
 
 interface ItemCardProps {
-  item: Item
+  item: Item;
 }
 
-export function ItemCard({ item }: ItemCardProps) {
-  const [showContact, setShowContact] = useState(false)
+export function ItemCard({item}: ItemCardProps) {
+  // Format date
+  const formattedDate = new Date(item.createdAt).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
 
-  // Get location name from location value
-  const getLocationName = (locationValue: string) => {
-    const locationMap: Record<string, string> = {
-      "sfc-ground": "SFC Ground Floor",
-      "sfc-first-floor": "SFC First Floor (FYP Lab)",
-      "sfc-second-floor": "SFC Second Floor (Labs)",
-      "sfc-classrooms": "SFC Classrooms",
-      "cs-rooms": "CS Classrooms",
-      "cs-admin": "CS Admin Offices",
-      "cs-faculty": "CS Faculty Offices",
-      "cs-gp-lab": "CS GP Lab",
-      "cs-call-lab": "CS CALL Lab",
-      "cs-mac-lab": "CS Mac Lab",
-      "cs-data-center": "CS Data Center",
-      "fsm-cafe": "FSM Cafe",
-      "fsm-audi": "FSM Auditorium",
-      "fsm-classrooms": "FSM Classrooms",
-      "fsm-faculty": "FSM Faculty Offices",
-      "fsm-admin": "FSM Admin Offices",
-      "girls-hostel": "Girls Hostel (near SFC)",
-      "boys-hostel": "Boys Hostel (at Dhabba)",
-      "tuc-shop": "TUC Shop (at Dhabba)",
-      "hair-saloon": "Boys Hair Saloon (at Dhabba)",
-      other: "Other Location",
+  // Truncate description
+  const truncateDescription = (text: string, maxLength = 100) => {
+    if (text.length <= maxLength) return text;
+    return text.slice(0, maxLength) + "...";
+  };
+
+  // Status badge color
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case "found":
+        return "bg-green-100 text-green-800 hover:bg-green-200";
+      case "lost":
+        return "bg-red-100 text-red-800 hover:bg-red-200";
+      case "claimed":
+        return "bg-blue-100 text-blue-800 hover:bg-blue-200";
+      default:
+        return "bg-gray-100 text-gray-800 hover:bg-gray-200";
     }
-
-    return locationMap[locationValue] || locationValue
-  }
+  };
 
   return (
-    <Card className="overflow-hidden border-secondary/10 hover:shadow-md transition-shadow">
-      <CardHeader className="pb-3 bg-secondary/5">
-        <div className="flex justify-between items-start">
-          <Badge variant={item.type === "lost" ? "destructive" : "default"} className="mb-2">
-            {item.type === "lost" ? "Lost" : "Found"}
-          </Badge>
-          <Badge variant={item.status === "open" ? "outline" : "secondary"}>
-            {item.status === "open" ? "Open" : "Closed"}
-          </Badge>
+    <Card className="overflow-hidden flex flex-col h-full">
+      {item.imageUrl ? (
+        <div className="aspect-video w-full overflow-hidden">
+          <img
+            src={item.imageUrl || "/placeholder.svg"}
+            alt={item.title}
+            className="h-full w-full object-cover transition-all hover:scale-105"
+          />
         </div>
-        <CardTitle className="text-lg">{item.title}</CardTitle>
-        <CardDescription className="line-clamp-2">{item.description}</CardDescription>
+      ) : (
+        <div className="aspect-video w-full bg-muted flex items-center justify-center">
+          <span className="text-muted-foreground">No image available</span>
+        </div>
+      )}
+
+      <CardHeader className="p-4">
+        <div className="flex justify-between items-start">
+          <CardTitle className="text-xl">{item.title}</CardTitle>
+          <Badge className={getStatusColor(item.status)}>{item.status}</Badge>
+        </div>
+        <CardDescription className="flex items-center gap-1 mt-1">
+          <MapPin className="h-3 w-3" /> {item.location}
+        </CardDescription>
       </CardHeader>
-      <CardContent className="pb-2 pt-4">
-        {item.image && (
-          <div className="relative w-full h-48 mb-4 rounded-md overflow-hidden">
-            <Image
-              src={item.image || "/placeholder.svg?height=200&width=400"}
-              alt={item.title}
-              fill
-              className="object-cover"
-            />
-          </div>
-        )}
-        <div className="space-y-2 text-sm">
-          <div className="flex items-center text-foreground/70">
-            <MapPin className="mr-1 h-4 w-4 text-primary" />
-            {getLocationName(item.location)}
-          </div>
-          <div className="flex items-center text-foreground/70">
-            <Calendar className="mr-1 h-4 w-4 text-primary" />
-            {formatDistanceToNow(new Date(item.date), { addSuffix: true })}
-          </div>
-          <div className="flex items-center">
-            <Badge variant="outline" className="mr-2 bg-primary/10 text-primary border-primary/20">
-              {item.category.charAt(0).toUpperCase() + item.category.slice(1)}
-            </Badge>
-          </div>
+
+      <CardContent className="p-4 pt-0 flex-grow">
+        <p className="text-sm text-muted-foreground">
+          {truncateDescription(item.description)}
+        </p>
+
+        <div className="flex items-center gap-1 mt-4 text-xs text-muted-foreground">
+          <Calendar className="h-3 w-3" />
+          <span>{formattedDate}</span>
         </div>
       </CardContent>
-      <CardFooter className="flex flex-col items-start pt-2 border-t border-secondary/10">
-        {showContact ? (
-          <div className="w-full space-y-2 text-sm">
-            <div className="flex items-center">
-              <Phone className="mr-1 h-4 w-4 text-primary" />
-              <span>{item.reportedBy.contactNumber || item.contactInfo}</span>
-            </div>
-            <div className="flex items-center">
-              <Mail className="mr-1 h-4 w-4 text-primary" />
-              <span>{item.reportedBy.email}</span>
-            </div>
-            <Button variant="outline" size="sm" className="mt-2 w-full" onClick={() => setShowContact(false)}>
-              Hide Contact
-            </Button>
-          </div>
-        ) : (
-          <div className="w-full flex flex-col gap-2">
-            <Button variant="default" size="sm" className="w-full" onClick={() => setShowContact(true)}>
-              Contact Reporter
-            </Button>
-            <Link href={`/item/${item._id}`} className="w-full">
-              <Button variant="outline" size="sm" className="w-full">
-                View Details
-              </Button>
-            </Link>
-          </div>
-        )}
+
+      <CardFooter className="p-4 pt-0">
+        <Button asChild className="w-full">
+          <Link href={`/item/${item._id}`}>
+            View Details
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Link>
+        </Button>
       </CardFooter>
     </Card>
-  )
+  );
 }

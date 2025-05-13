@@ -1,29 +1,41 @@
-import { type NextRequest, NextResponse } from "next/server"
-import connectToDatabase from "@/lib/db"
-import User from "@/models/User"
-import { getAuthCookie, verifyToken } from "@/lib/auth"
+import {type NextRequest, NextResponse} from "next/server";
+import connectToDatabase from "@/lib/db";
+import User from "@/models/User";
+import {verifyToken} from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
   try {
-    const token = getAuthCookie()
+    // Get token from cookie
+    const token = req.cookies.get("auth_token")?.value;
 
     if (!token) {
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json(
+        {success: false, error: "Not authenticated"},
+        {status: 401}
+      );
     }
 
-    const decoded = verifyToken(token)
-    if (!decoded) {
-      return NextResponse.json({ success: false, error: "Invalid token" }, { status: 401 })
+    // Verify token
+    const decoded = verifyToken(token);
+    if (!decoded || !decoded.sub) {
+      return NextResponse.json(
+        {success: false, error: "Invalid token"},
+        {status: 401}
+      );
     }
 
-    await connectToDatabase()
+    await connectToDatabase();
 
-    const user = await User.findById(decoded.userId).select("-password -verificationCode -resetCode")
-
+    // Find user
+    const user = await User.findById(decoded.sub);
     if (!user) {
-      return NextResponse.json({ success: false, error: "User not found" }, { status: 404 })
+      return NextResponse.json(
+        {success: false, error: "User not found"},
+        {status: 404}
+      );
     }
 
+    // Return user data
     return NextResponse.json({
       success: true,
       user: {
@@ -33,9 +45,12 @@ export async function GET(req: NextRequest) {
         contactNumber: user.contactNumber,
         isVerified: user.isVerified,
       },
-    })
+    });
   } catch (error) {
-    console.error("Get current user error:", error)
-    return NextResponse.json({ success: false, error: "An error occurred" }, { status: 500 })
+    console.error("Get current user error:", error);
+    return NextResponse.json(
+      {success: false, error: "An error occurred while fetching user data"},
+      {status: 500}
+    );
   }
 }

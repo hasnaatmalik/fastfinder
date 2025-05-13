@@ -1,75 +1,48 @@
-"use client"
+"use client";
 
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface LocationSelectorProps {
-  value: string
-  onChange: (value: string) => void
+  value: string;
+  onChange: (value: string) => void;
+  className?: string;
 }
 
-export function LocationSelector({ value, onChange }: LocationSelectorProps) {
-  // Campus locations based on the provided information
+export function LocationSelector({
+  value,
+  onChange,
+  className,
+}: LocationSelectorProps) {
   const locations = [
-    {
-      group: "SFC Building",
-      items: [
-        { value: "sfc-ground", label: "SFC Ground Floor" },
-        { value: "sfc-first-floor", label: "SFC First Floor (FYP Lab)" },
-        { value: "sfc-second-floor", label: "SFC Second Floor (Labs)" },
-        { value: "sfc-classrooms", label: "SFC Classrooms" },
-      ],
-    },
-    {
-      group: "CS Building",
-      items: [
-        { value: "cs-rooms", label: "CS Classrooms" },
-        { value: "cs-admin", label: "CS Admin Offices" },
-        { value: "cs-faculty", label: "CS Faculty Offices" },
-        { value: "cs-gp-lab", label: "CS GP Lab" },
-        { value: "cs-call-lab", label: "CS CALL Lab" },
-        { value: "cs-mac-lab", label: "CS Mac Lab" },
-        { value: "cs-data-center", label: "CS Data Center" },
-      ],
-    },
-    {
-      group: "FSM Building",
-      items: [
-        { value: "fsm-cafe", label: "FSM Cafe" },
-        { value: "fsm-audi", label: "FSM Auditorium" },
-        { value: "fsm-classrooms", label: "FSM Classrooms" },
-        { value: "fsm-faculty", label: "FSM Faculty Offices" },
-        { value: "fsm-admin", label: "FSM Admin Offices" },
-      ],
-    },
-    {
-      group: "Other Locations",
-      items: [
-        { value: "girls-hostel", label: "Girls Hostel (near SFC)" },
-        { value: "boys-hostel", label: "Boys Hostel (at Dhabba)" },
-        { value: "tuc-shop", label: "TUC Shop (at Dhabba)" },
-        { value: "hair-saloon", label: "Boys Hair Saloon (at Dhabba)" },
-        { value: "other", label: "Other Location" },
-      ],
-    },
-  ]
+    {value: "all", label: "All Locations"},
+    {value: "Library", label: "Library"},
+    {value: "Cafeteria", label: "Cafeteria"},
+    {value: "Classroom", label: "Classroom"},
+    {value: "Dormitory", label: "Dormitory"},
+    {value: "Sports Complex", label: "Sports Complex"},
+    {value: "Parking Lot", label: "Parking Lot"},
+    {value: "Administration Building", label: "Administration Building"},
+    {value: "Other", label: "Other"},
+  ];
 
   return (
     <Select value={value} onValueChange={onChange}>
-      <SelectTrigger>
+      <SelectTrigger className={className}>
         <SelectValue placeholder="Select location" />
       </SelectTrigger>
       <SelectContent>
-        {locations.map((group) => (
-          <div key={group.group}>
-            <div className="px-2 py-1.5 text-sm font-semibold">{group.group}</div>
-            {group.items.map((item) => (
-              <SelectItem key={item.value} value={item.value}>
-                {item.label}
-              </SelectItem>
-            ))}
-          </div>
+        {locations.map((location) => (
+          <SelectItem key={location.value} value={location.value}>
+            {location.label}
+          </SelectItem>
         ))}
       </SelectContent>
     </Select>
-  )
+  );
 }

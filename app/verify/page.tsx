@@ -28,6 +28,7 @@ export default function VerifyPage() {
   const [resendLoading, setResendLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [countdown, setCountdown] = useState(0);
+  const [message, setMessage] = useState("");
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -45,6 +46,12 @@ export default function VerifyPage() {
 
     if (!verificationCode) {
       setError("Please enter the verification code");
+      setLoading(false);
+      return;
+    }
+
+    if (!email) {
+      setError("Email is required");
       setLoading(false);
       return;
     }
@@ -71,8 +78,14 @@ export default function VerifyPage() {
       }
 
       setSuccess(true);
+      setMessage(
+        data.message ||
+          "Email verified successfully! You will be redirected to login."
+      );
+
+      // Redirect to dashboard after successful verification
       setTimeout(() => {
-        router.push("/login");
+        router.push("/dashboard");
       }, 2000);
     } catch (err) {
       console.error("Verification error:", err);
@@ -87,6 +100,12 @@ export default function VerifyPage() {
 
     setResendLoading(true);
     setError("");
+
+    if (!email) {
+      setError("Email is required");
+      setResendLoading(false);
+      return;
+    }
 
     try {
       const response = await fetch("/api/auth/resend-otp", {
@@ -117,9 +136,16 @@ export default function VerifyPage() {
         });
       }, 1000);
 
+      // Set success message
+      setMessage("A new verification code has been sent to your email.");
+
       // For demo purposes, show the new code
       if (data.verificationCode) {
-        alert(`New verification code: ${data.verificationCode}`);
+        console.log(`New verification code: ${data.verificationCode}`);
+        // Show the code in the UI for development purposes
+        setMessage(
+          `A new verification code has been sent to your email. (Dev mode: ${data.verificationCode})`
+        );
       }
     } catch (err) {
       console.error("Resend code error:", err);
@@ -147,12 +173,14 @@ export default function VerifyPage() {
           <CardContent className="space-y-4">
             <div className="flex flex-col items-center gap-4">
               <CheckCircle className="h-16 w-16 text-green-500" />
-              <p className="text-center">You can now log in to your account.</p>
+              <p className="text-center">
+                You can now use all features of FAST Finder.
+              </p>
             </div>
           </CardContent>
           <CardFooter className="flex justify-center">
-            <Link href="/login">
-              <Button>Go to Login</Button>
+            <Link href="/dashboard">
+              <Button>Go to Dashboard</Button>
             </Link>
           </CardFooter>
         </Card>
@@ -182,6 +210,13 @@ export default function VerifyPage() {
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
+
+            {message && (
+              <Alert>
+                <AlertDescription>{message}</AlertDescription>
+              </Alert>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input

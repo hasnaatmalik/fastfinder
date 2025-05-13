@@ -2,8 +2,8 @@
 
 import type React from "react";
 
-import {useState} from "react";
-import {useRouter} from "next/navigation";
+import {useState, useEffect} from "react";
+import {useRouter, useSearchParams} from "next/navigation";
 import Link from "next/link";
 import {Button} from "@/components/ui/button";
 import {Input} from "@/components/ui/input";
@@ -19,6 +19,7 @@ import {
 import {Alert, AlertDescription} from "@/components/ui/alert";
 import {AlertCircle, Loader2} from "lucide-react";
 import {Logo} from "@/components/logo";
+import {useToast} from "@/components/ui/use-toast";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -26,6 +27,23 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectPath = searchParams.get("redirect") || "/dashboard";
+  const {toast} = useToast();
+
+  // Check if there's a status message in the URL (e.g., after registration)
+  useEffect(() => {
+    const status = searchParams.get("status");
+    const message = searchParams.get("message");
+
+    if (status === "success" && message) {
+      toast({
+        title: "Success",
+        description: decodeURIComponent(message),
+        variant: "default",
+      });
+    }
+  }, [searchParams, toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,17 +72,30 @@ export default function LoginPage() {
       const data = await response.json();
 
       if (!data.success) {
+        if (data.needsVerification) {
+          // Redirect to verification page if email is not verified
+          router.push(`/verify?email=${encodeURIComponent(data.email)}`);
+          return;
+        }
+
         setError(data.error || "Login failed. Please check your credentials.");
         setLoading(false);
         return;
       }
 
-      // Redirect to dashboard on successful login
-      router.push("/dashboard");
+      // Show success toast
+      toast({
+        title: "Login successful",
+        description: "Welcome back to FastFinder!",
+        variant: "default",
+      });
+
+      // Redirect to dashboard or the original requested page
+      // Use replace to prevent going back to login page
+      router.replace(redirectPath);
     } catch (err) {
       console.error("Login error:", err);
       setError("An error occurred during login. Please try again.");
-    } finally {
       setLoading(false);
     }
   };
@@ -100,6 +131,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                autoComplete="email"
               />
             </div>
             <div className="space-y-2">
@@ -118,6 +150,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                autoComplete="current-password"
               />
             </div>
           </CardContent>

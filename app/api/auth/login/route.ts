@@ -1,7 +1,7 @@
 import {type NextRequest, NextResponse} from "next/server";
 import connectToDatabase from "@/lib/db";
 import User from "@/models/User";
-import {generateToken, setAuthCookie} from "@/lib/auth";
+import {createToken, setAuthCookie} from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,8 +17,8 @@ export async function POST(req: NextRequest) {
 
     await connectToDatabase();
 
-    // Find user
-    const user = await User.findOne({email});
+    // Find user - explicitly select the password field
+    const user = await User.findOne({email}).select("+password");
     if (!user) {
       return NextResponse.json(
         {success: false, error: "Invalid email or password"},
@@ -26,7 +26,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.log("User password,", password);
     // Check password
     const isPasswordValid = await user.comparePassword(password);
     if (!isPasswordValid) {
@@ -50,26 +49,25 @@ export async function POST(req: NextRequest) {
     }
 
     // Generate token
-    const token = generateToken(user._id.toString());
+    const token = createToken(user._id.toString());
 
-    // Set auth cookie
-    //await setAuthCookie(token);
-
-    // Return user data (without sensitive information)
-    const userData = {
-      id: user._id,
-      name: user.name,
-      email: user.email,
-      contactNumber: user.contactNumber,
-      isVerified: user.isVerified,
-    };
-
-    return NextResponse.json({
+    // Create response
+    const response = NextResponse.json({
       success: true,
       message: "Login successful!",
-      user: userData,
-      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        contactNumber: user.contactNumber,
+        isVerified: user.isVerified,
+      },
     });
+
+    // Set auth cookie
+    setAuthCookie(response, token);
+
+    return response;
   } catch (error) {
     console.error("Login error:", error);
     return NextResponse.json(
