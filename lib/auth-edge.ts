@@ -10,16 +10,21 @@ const JWT_EXPIRES_IN = "7d";
 
 // Create JWT token - only used in API routes, not middleware
 export function createToken(userId: string) {
-  const token = new SignJWT({sub: userId})
-    .setProtectedHeader({alg: "HS256"})
-    .setIssuedAt()
-    .setExpirationTime(JWT_EXPIRES_IN)
-    .sign(new TextEncoder().encode(JWT_SECRET), {sync: true});
+  try {
+    const token = new SignJWT({sub: userId})
+      .setProtectedHeader({alg: "HS256"})
+      .setIssuedAt()
+      .setExpirationTime(JWT_EXPIRES_IN)
+      .sign(new TextEncoder().encode(JWT_SECRET));
 
-  return token;
+    return token;
+  } catch (error) {
+    console.error("Error creating token:", error);
+    throw error;
+  }
 }
 
-// Verify JWT token (synchronous version for middleware)
+// Verify JWT token - safe to use in middleware
 export function verifyToken(token: string) {
   try {
     const {payload} = jwtVerify(token, new TextEncoder().encode(JWT_SECRET), {
@@ -27,7 +32,7 @@ export function verifyToken(token: string) {
     });
     return payload;
   } catch (error) {
-    console.error("Token verification error in auth-edge:", error);
+    console.error("Token verification error:", error);
     return null;
   }
 }

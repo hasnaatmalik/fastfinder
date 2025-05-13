@@ -1,6 +1,5 @@
 import {type NextRequest, NextResponse} from "next/server";
-import bcrypt from "bcryptjs";
-import {connectToDatabase} from "@/lib/db";
+import connectToDatabase from "@/lib/db";
 import User from "@/models/User";
 import {createToken, setAuthCookie} from "@/lib/auth-edge";
 
@@ -20,9 +19,7 @@ export async function POST(request: NextRequest) {
     await connectToDatabase();
 
     // Find user by email
-    const user = await User.findOne({email}).select(
-      "+password +verificationCode +isVerified"
-    );
+    const user = await User.findOne({email}).select("+password");
 
     // Check if user exists
     if (!user) {
@@ -40,17 +37,13 @@ export async function POST(request: NextRequest) {
           error: "Please verify your email before logging in",
           needsVerification: true,
           email: user.email,
-          // Only in development, send the verification code for testing
-          ...(process.env.NODE_ENV === "development" && {
-            verificationCode: user.verificationCode,
-          }),
         },
         {status: 403}
       );
     }
 
     // Check password
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    const isPasswordValid = await user.comparePassword(password);
 
     if (!isPasswordValid) {
       return NextResponse.json(
@@ -60,7 +53,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create JWT token
-    const token = createToken(user._id.toString());
+    const token = await createToken(user._id.toString());
 
     // Create response
     const response = NextResponse.json(
@@ -79,9 +72,6 @@ export async function POST(request: NextRequest) {
 
     // Set auth cookie
     setAuthCookie(response, token);
-
-    // Log for debugging
-    console.log("Login successful, token set in cookie");
 
     return response;
   } catch (error) {

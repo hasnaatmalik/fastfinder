@@ -1,268 +1,77 @@
-// API utility functions for making requests to the backend
+import {jwtVerify, SignJWT} from "jose";
+import {cookies} from "next/headers";
 
-// Base API URL - adjust if needed
-const API_BASE_URL = "/api";
+// Clean up the JWT_SECRET by removing line breaks and extra spaces
+const JWT_SECRET = (process.env.JWT_SECRET || "your-secret-key").replace(
+  /\s+/g,
+  ""
+);
+const JWT_EXPIRES_IN = "7d";
 
-// Type definitions
-type ApiResponse<T = any> = {
-  success: boolean;
-  data?: T;
-  error?: string;
-  message?: string;
-  verificationCode?: string; // For development purposes only
-};
-
-type RegisterData = {
-  name: string;
-  email: string;
-  password: string;
-  confirmPassword: string;
-  contactNumber: string;
-};
-
-type LoginData = {
-  email: string;
-  password: string;
-};
-
-type VerifyData = {
-  email: string;
-  code: string;
-};
-
-type ResendOtpData = {
-  email: string;
-};
-
-type ForgotPasswordData = {
-  email: string;
-};
-
-type ResetPasswordData = {
-  token: string;
-  password: string;
-  confirmPassword: string;
-};
-
-// Registration
-export async function registerUser(data: RegisterData): Promise<ApiResponse> {
+// Create JWT token
+export async function createToken(userId: string) {
   try {
-    const response = await fetch(`${API_BASE_URL}/auth/register`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(data),
-    });
-
-    return await response.json();
-  } catch (error) {
-    console.error("API Error:", error);
-    return {success: false, error: "Failed to connect to the server"};
-  }
-}
-
-// Login
-export async function loginUser(data: LoginData): Promise<ApiResponse> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/auth/login`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(data),
-      credentials: "include", // Important for cookies
-    });
-
-    return await response.json();
-  } catch (error) {
-    console.error("API Error:", error);
-    return {success: false, error: "Failed to connect to the server"};
-  }
-}
-
-// Verify account
-export async function verifyAccount(data: VerifyData): Promise<ApiResponse> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/auth/verify`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(data),
-      credentials: "include",
-    });
-
-    return await response.json();
-  } catch (error) {
-    console.error("API Error:", error);
-    return {success: false, error: "Failed to connect to the server"};
-  }
-}
-
-// Resend OTP
-export async function resendOtp(data: ResendOtpData): Promise<ApiResponse> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/auth/resend-otp`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(data),
-    });
-
-    return await response.json();
-  } catch (error) {
-    console.error("API Error:", error);
-    return {success: false, error: "Failed to connect to the server"};
-  }
-}
-
-// Forgot password
-export async function forgotPassword(
-  data: ForgotPasswordData
-): Promise<ApiResponse> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(data),
-    });
-
-    return await response.json();
-  } catch (error) {
-    console.error("API Error:", error);
-    return {success: false, error: "Failed to connect to the server"};
-  }
-}
-
-// Reset password
-export async function resetPassword(
-  data: ResetPasswordData
-): Promise<ApiResponse> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(data),
-    });
-
-    return await response.json();
-  } catch (error) {
-    console.error("API Error:", error);
-    return {success: false, error: "Failed to connect to the server"};
-  }
-}
-
-// Logout
-export async function logoutUser(): Promise<ApiResponse> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/auth/logout`, {
-      method: "POST",
-      credentials: "include",
-    });
-
-    return await response.json();
-  } catch (error) {
-    console.error("API Error:", error);
-    return {success: false, error: "Failed to connect to the server"};
-  }
-}
-
-// Get current user
-export async function getCurrentUser(): Promise<ApiResponse> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/auth/me`, {
-      credentials: "include",
-    });
-
-    return await response.json();
-  } catch (error) {
-    console.error("API Error:", error);
-    return {success: false, error: "Failed to connect to the server"};
-  }
-}
-
-// Item related API calls
-export async function getItems(query = ""): Promise<ApiResponse> {
-  try {
-    const response = await fetch(
-      `${API_BASE_URL}/items${query ? `?${query}` : ""}`,
-      {
-        credentials: "include",
-      }
+    console.log("Auth.ts: Creating token with userId:", userId);
+    console.log(
+      "Auth.ts: Using JWT_SECRET (first 10 chars):",
+      JWT_SECRET.substring(0, 10)
     );
 
-    return await response.json();
+    const token = await new SignJWT({sub: userId})
+      .setProtectedHeader({alg: "HS256"})
+      .setIssuedAt()
+      .setExpirationTime(JWT_EXPIRES_IN)
+      .sign(new TextEncoder().encode(JWT_SECRET));
+
+    console.log(
+      "Auth.ts: Token created successfully (first 20 chars):",
+      token.substring(0, 20)
+    );
+    return token;
   } catch (error) {
-    console.error("API Error:", error);
-    return {success: false, error: "Failed to connect to the server"};
+    console.error("Auth.ts: Error creating token:", error);
+    throw error;
   }
 }
 
-export async function getItem(id: string): Promise<ApiResponse> {
+// Verify JWT token
+export async function verifyToken(token: string) {
   try {
-    const response = await fetch(`${API_BASE_URL}/items/${id}`, {
-      credentials: "include",
-    });
+    console.log(
+      "Auth.ts: Verifying token (first 20 chars):",
+      token.substring(0, 20)
+    );
+    console.log(
+      "Auth.ts: Using JWT_SECRET (first 10 chars):",
+      JWT_SECRET.substring(0, 10)
+    );
 
-    return await response.json();
+    const {payload} = await jwtVerify(
+      token,
+      new TextEncoder().encode(JWT_SECRET)
+    );
+    console.log("Auth.ts: Token verified successfully, payload:", payload);
+    return payload;
   } catch (error) {
-    console.error("API Error:", error);
-    return {success: false, error: "Failed to connect to the server"};
+    console.error("Auth.ts: Token verification error:", error);
+    return null;
   }
 }
 
-export async function createItem(data: any): Promise<ApiResponse> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/items`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(data),
-      credentials: "include",
-    });
+// Get current user from token
+export async function getCurrentUser() {
+  const cookieStore = cookies();
+  const token = cookieStore.get("auth_token")?.value;
 
-    return await response.json();
-  } catch (error) {
-    console.error("API Error:", error);
-    return {success: false, error: "Failed to connect to the server"};
+  if (!token) {
+    return null;
   }
-}
 
-export async function updateItem(id: string, data: any): Promise<ApiResponse> {
   try {
-    const response = await fetch(`${API_BASE_URL}/items/${id}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(data),
-      credentials: "include",
-    });
-
-    return await response.json();
+    const payload = await verifyToken(token);
+    return payload;
   } catch (error) {
-    console.error("API Error:", error);
-    return {success: false, error: "Failed to connect to the server"};
-  }
-}
-
-export async function deleteItem(id: string): Promise<ApiResponse> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/items/${id}`, {
-      method: "DELETE",
-      credentials: "include",
-    });
-
-    return await response.json();
-  } catch (error) {
-    console.error("API Error:", error);
-    return {success: false, error: "Failed to connect to the server"};
+    console.error("Error getting current user:", error);
+    return null;
   }
 }
