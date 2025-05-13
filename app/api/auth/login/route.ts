@@ -1,37 +1,34 @@
 import {type NextRequest, NextResponse} from "next/server";
-import connectToDatabase from "@/lib/db";
+import bcrypt from "bcryptjs";
+import {connectToDatabase} from "@/lib/db";
 import User from "@/models/User";
-import {createToken, setAuthCookie} from "@/lib/auth";
+import {createToken, setAuthCookie} from "@/lib/auth-edge";
 
-export async function POST(req: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    const {email, password} = await req.json();
+    const {email, password} = await request.json();
 
-    // Validation
+    // Validate input
     if (!email || !password) {
       return NextResponse.json(
-        {success: false, error: "Please fill in all fields"},
+        {success: false, error: "Email and password are required"},
         {status: 400}
       );
     }
 
+    // Connect to database
     await connectToDatabase();
 
-    // Find user - explicitly select the password field
-    const user = await User.findOne({email}).select("+password");
+    // Find user by email
+    const user = await User.findOne({email}).select(
+      "+password +verificationCode +isVerified"
+    );
+
+    // Check if user exists
     if (!user) {
       return NextResponse.json(
         {success: false, error: "Invalid email or password"},
-        {status: 400}
-      );
-    }
-
-    // Check password
-    const isPasswordValid = await user.comparePassword(password);
-    if (!isPasswordValid) {
-      return NextResponse.json(
-        {success: false, error: "Invalid email or password"},
-        {status: 400}
+        {status: 401}
       );
     }
 
@@ -43,29 +40,48 @@ export async function POST(req: NextRequest) {
           error: "Please verify your email before logging in",
           needsVerification: true,
           email: user.email,
+          // Only in development, send the verification code for testing
+          ...(process.env.NODE_ENV === "development" && {
+            verificationCode: user.verificationCode,
+          }),
         },
         {status: 403}
       );
     }
 
-    // Generate token
+    // Check password
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordValid) {
+      return NextResponse.json(
+        {success: false, error: "Invalid email or password"},
+        {status: 401}
+      );
+    }
+
+    // Create JWT token
     const token = createToken(user._id.toString());
 
     // Create response
-    const response = NextResponse.json({
-      success: true,
-      message: "Login successful!",
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        contactNumber: user.contactNumber,
-        isVerified: user.isVerified,
+    const response = NextResponse.json(
+      {
+        success: true,
+        message: "Login successful",
+        user: {
+          _id: user._id,
+          name: user.name,
+          email: user.email,
+          contactNumber: user.contactNumber,
+        },
       },
-    });
+      {status: 200}
+    );
 
     // Set auth cookie
     setAuthCookie(response, token);
+
+    // Log for debugging
+    console.log("Login successful, token set in cookie");
 
     return response;
   } catch (error) {

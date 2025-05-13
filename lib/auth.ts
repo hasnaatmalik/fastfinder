@@ -2,7 +2,11 @@ import {jwtVerify, SignJWT} from "jose";
 import type {NextResponse} from "next/server";
 import {cookies} from "next/headers";
 
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
+// Clean up the JWT_SECRET by removing line breaks and extra spaces
+const JWT_SECRET = (process.env.JWT_SECRET || "your-secret-key").replace(
+  /\s+/g,
+  ""
+);
 const JWT_EXPIRES_IN = "7d";
 
 // Create JWT token

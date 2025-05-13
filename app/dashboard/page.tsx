@@ -1,235 +1,229 @@
 "use client";
 
-import {useState, useEffect} from "react";
+import {useEffect, useState} from "react";
+import {useRouter} from "next/navigation";
+import {Button} from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {Button} from "@/components/ui/button";
-import {Skeleton} from "@/components/ui/skeleton";
-import {useToast} from "@/components/ui/use-toast";
+import {Tabs, TabsContent, TabsList, TabsTrigger} from "@/components/ui/tabs";
 import {ItemCard} from "@/components/item-card";
-import {LocationSelector} from "@/components/location-selector";
-import {PlusCircle, Search, MapPin, Clock, AlertCircle} from "lucide-react";
 import Link from "next/link";
+import {
+  AlertCircle,
+  Loader2,
+  PlusCircle,
+  Search,
+  Package,
+  User,
+} from "lucide-react";
+import {useToast} from "@/components/ui/use-toast";
+import {Skeleton} from "@/components/ui/skeleton";
+import {Alert, AlertDescription} from "@/components/ui/alert";
 
-interface User {
-  id: string;
+interface UserType {
+  _id: string;
   name: string;
   email: string;
+  contactNumber: string;
 }
 
 interface Item {
   _id: string;
   title: string;
   description: string;
+  type: "lost" | "found";
   category: string;
   location: string;
-  status: string;
-  imageUrl: string;
   createdAt: string;
-  user: string;
+  contactInfo: string;
+  reportedBy: {
+    _id: string;
+    name: string;
+  };
+  image?: string;
+  status: "open" | "closed";
 }
 
 export default function DashboardPage() {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<UserType | null>(null);
   const [items, setItems] = useState<Item[]>([]);
+  const [activeTab, setActiveTab] = useState("all");
   const [loading, setLoading] = useState(true);
-  const [selectedLocation, setSelectedLocation] = useState<string>("all");
+  const [error, setError] = useState("");
+  const router = useRouter();
   const {toast} = useToast();
 
   useEffect(() => {
-    // Fetch current user
-    const fetchUser = async () => {
+    async function fetchData() {
       try {
-        const res = await fetch("/api/auth/me", {
+        // Fetch current user
+        const userResponse = await fetch("/api/auth/me", {
           credentials: "include",
         });
 
-        if (res.ok) {
-          const data = await res.json();
-          if (data.success) {
-            setUser(data.user);
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching user:", error);
-        toast({
-          title: "Error",
-          description: "Failed to load user data. Please refresh the page.",
-          variant: "destructive",
-        });
-      }
-    };
+        const userData = await userResponse.json();
 
-    // Fetch recent items
-    const fetchItems = async () => {
-      try {
-        const res = await fetch("/api/items?limit=6", {
+        if (!userData.success) {
+          console.error("Failed to fetch user data:", userData.error);
+          router.push("/login");
+          return;
+        }
+
+        setUser(userData.data);
+
+        // Fetch items
+        const itemsResponse = await fetch("/api/items", {
           credentials: "include",
         });
 
-        if (res.ok) {
-          const data = await res.json();
-          if (data.success) {
-            setItems(data.items);
-          }
+        const itemsData = await itemsResponse.json();
+
+        if (!itemsData.success) {
+          console.error("Failed to fetch items:", itemsData.error);
+          setError("Failed to load items. Please try again later.");
+        } else {
+          setItems(itemsData.data || []);
         }
-      } catch (error) {
-        console.error("Error fetching items:", error);
-        toast({
-          title: "Error",
-          description: "Failed to load items. Please refresh the page.",
-          variant: "destructive",
-        });
+      } catch (err) {
+        console.error("Dashboard data fetch error:", err);
+        setError("An error occurred while loading the dashboard.");
       } finally {
         setLoading(false);
       }
-    };
+    }
 
-    fetchUser();
-    fetchItems();
-  }, [toast]);
+    fetchData();
+  }, [router, toast]);
 
-  // Filter items by location
-  const filteredItems =
-    selectedLocation === "all"
-      ? items
-      : items.filter((item) => item.location === selectedLocation);
+  // Filter items based on active tab
+  const filteredItems = items.filter((item) => {
+    if (activeTab === "all") return true;
+    if (activeTab === "lost") return item.type === "lost";
+    if (activeTab === "found") return item.type === "found";
+    if (activeTab === "mine" && user) return item.reportedBy._id === user._id;
+    return true;
+  });
+
+  // Sort items by date (newest first)
+  const sortedItems = [...filteredItems].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+
+  if (loading) {
+    return (
+      <div className="container py-10">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+          <div>
+            <Skeleton className="h-8 w-64 mb-2" />
+            <Skeleton className="h-4 w-80" />
+          </div>
+          <Skeleton className="h-10 w-32" />
+        </div>
+
+        <Skeleton className="h-12 w-full max-w-md mb-8" />
+
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <Skeleton key={i} className="h-64 w-full" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container py-10">
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+
+        <Button onClick={() => window.location.reload()}>
+          <Loader2 className="mr-2 h-4 w-4" />
+          Retry Loading
+        </Button>
+      </div>
+    );
+  }
 
   return (
-    <div className="container py-8">
+    <div className="container py-10">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground mt-1">
-            {user ? `Welcome back, ${user.name}!` : "Welcome to FastFinder"}
+          <h1 className="text-3xl font-bold tracking-tight">
+            Welcome, {user?.name}
+          </h1>
+          <p className="text-foreground/70 mt-1">
+            Browse lost and found items or report a new item
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button asChild>
-            <Link href="/search">
-              <Search className="mr-2 h-4 w-4" />
-              Search Items
-            </Link>
+        <Link href="/report">
+          <Button>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Report Item
           </Button>
-          <Button variant="outline" asChild>
-            <Link href="/report">
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Report Item
-            </Link>
-          </Button>
-        </div>
+        </Link>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Recent Activity</CardTitle>
-            <CardDescription>
-              Your recent activity on FastFinder
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-muted-foreground" />
-              <span>
-                {loading ? (
-                  <Skeleton className="h-4 w-32" />
-                ) : (
-                  `${items.length} items found recently`
-                )}
-              </span>
+      <Tabs defaultValue="all" className="w-full" onValueChange={setActiveTab}>
+        <TabsList className="grid grid-cols-4 w-full max-w-md mb-8">
+          <TabsTrigger value="all">All Items</TabsTrigger>
+          <TabsTrigger value="lost">Lost</TabsTrigger>
+          <TabsTrigger value="found">Found</TabsTrigger>
+          <TabsTrigger value="mine">My Reports</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value={activeTab} className="mt-0">
+          {sortedItems.length > 0 ? (
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {sortedItems.map((item) => (
+                <ItemCard key={item._id} item={item} />
+              ))}
             </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Your Location</CardTitle>
-            <CardDescription>Filter items by location</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <MapPin className="h-5 w-5 text-muted-foreground" />
-              <LocationSelector
-                value={selectedLocation}
-                onChange={setSelectedLocation}
-                className="w-full"
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Quick Actions</CardTitle>
-            <CardDescription>Common tasks you can perform</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-2">
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/my-items">View My Items</Link>
-            </Button>
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/report">Report New Item</Link>
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-
-      <h2 className="text-2xl font-bold tracking-tight mb-4">Recent Items</h2>
-
-      {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[...Array(6)].map((_, i) => (
-            <Card key={i} className="overflow-hidden">
-              <div className="aspect-video w-full">
-                <Skeleton className="h-full w-full" />
-              </div>
+          ) : (
+            <Card>
               <CardHeader>
-                <Skeleton className="h-6 w-3/4 mb-2" />
-                <Skeleton className="h-4 w-1/2" />
+                <CardTitle className="flex items-center">
+                  {activeTab === "all" && <Search className="mr-2 h-5 w-5" />}
+                  {activeTab === "lost" && <Package className="mr-2 h-5 w-5" />}
+                  {activeTab === "found" && (
+                    <Package className="mr-2 h-5 w-5" />
+                  )}
+                  {activeTab === "mine" && <User className="mr-2 h-5 w-5" />}
+                  No items found
+                </CardTitle>
+                <CardDescription>
+                  {activeTab === "mine"
+                    ? "You haven't reported any items yet."
+                    : "There are no items in this category yet."}
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                <Skeleton className="h-4 w-full mb-2" />
-                <Skeleton className="h-4 w-3/4" />
+                <p className="text-sm text-foreground/70">
+                  {activeTab === "mine"
+                    ? "Report a lost or found item to see it here."
+                    : "Check back later or change your filter."}
+                </p>
               </CardContent>
+              <CardFooter>
+                <Link href="/report">
+                  <Button>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Report Item
+                  </Button>
+                </Link>
+              </CardFooter>
             </Card>
-          ))}
-        </div>
-      ) : filteredItems.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredItems.map((item) => (
-            <ItemCard key={item._id} item={item} />
-          ))}
-        </div>
-      ) : (
-        <Card className="p-8 text-center">
-          <div className="flex flex-col items-center gap-2">
-            <AlertCircle className="h-8 w-8 text-muted-foreground" />
-            <h3 className="text-xl font-semibold">No items found</h3>
-            <p className="text-muted-foreground">
-              {selectedLocation === "all"
-                ? "There are no items to display at the moment."
-                : `No items found in ${selectedLocation}. Try selecting a different location.`}
-            </p>
-            <Button className="mt-4" asChild>
-              <Link href="/search">Search All Items</Link>
-            </Button>
-          </div>
-        </Card>
-      )}
-
-      {filteredItems.length > 0 && (
-        <div className="mt-8 text-center">
-          <Button asChild>
-            <Link href="/search">View All Items</Link>
-          </Button>
-        </div>
-      )}
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

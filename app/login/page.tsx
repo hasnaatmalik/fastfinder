@@ -26,6 +26,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectPath = searchParams.get("redirect") || "/dashboard";
@@ -90,9 +91,11 @@ export default function LoginPage() {
         variant: "default",
       });
 
-      // Redirect to dashboard or the original requested page
-      // Use replace to prevent going back to login page
-      router.replace(redirectPath);
+      // Set redirecting state to show feedback to user
+      setRedirecting(true);
+
+      // Force a hard navigation to dashboard instead of client-side routing
+      window.location.href = redirectPath;
     } catch (err) {
       console.error("Login error:", err);
       setError("An error occurred during login. Please try again.");
@@ -132,6 +135,7 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 autoComplete="email"
+                disabled={loading || redirecting}
               />
             </div>
             <div className="space-y-2">
@@ -151,15 +155,25 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 autoComplete="current-password"
+                disabled={loading || redirecting}
               />
             </div>
           </CardContent>
           <CardFooter className="flex flex-col">
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={loading || redirecting}
+            >
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Signing in...
+                </>
+              ) : redirecting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Redirecting to dashboard...
                 </>
               ) : (
                 "Sign in"
